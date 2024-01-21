@@ -32,14 +32,14 @@ The project is structured as follows:
    Clone this repository to your local machine:
 
     ```bash
-    git clone https://github.com/your-username/crud-api.git
-    cd crud-api
+    git clone https://github.com/panchanandevops/CRUD-API-Using-Gorilla-Mux.git
     ```
 
 3. **Install Dependencies:**
    Run the following command to install project dependencies:
 
     ```bash
+    go mod init crud-api
     go mod tidy
     ```
 
