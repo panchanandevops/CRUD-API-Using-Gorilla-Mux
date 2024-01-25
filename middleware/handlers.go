@@ -1,197 +1,171 @@
+// internal/middleware/middleware.go
 package middleware
 
 import (
-	"crud-api/models" // models package where Stock schema is defined
+	"crud-api/models"
 	"database/sql"
-	"encoding/json" // package to encode and decode the json into struct and vice versa
+	"encoding/json"
 	"fmt"
 	"log"
-	"net/http" // used to access the request and response object of the api
-	"os"       // used to read the environment variable
-	"strconv"  // package used to covert string into int type
+	"net/http"
+	"os"
+	"strconv"
 
-	"github.com/gorilla/mux" // used to get the params from the route
-
-	"github.com/joho/godotenv" // package used to read the .env file
-	_ "github.com/lib/pq"      // postgres golang driver
+	"github.com/gorilla/mux"
+	"github.com/joho/godotenv"
+	_ "github.com/lib/pq" // Import the PostgreSQL driver
 )
 
-// response format
+// response is a struct for JSON responses
 type response struct {
 	ID      int64  `json:"id,omitempty"`
 	Message string `json:"message,omitempty"`
 }
 
-// create connection with postgres db
+// createConnection establishes a connection to the PostgreSQL database
 func createConnection() *sql.DB {
-	// load .env file
 	err := godotenv.Load(".env")
-
 	if err != nil {
 		log.Fatalf("Error loading .env file")
 	}
 
-	// Open the connection
+	// Open a connection to the PostgreSQL database
 	db, err := sql.Open("postgres", os.Getenv("POSTGRES_URL"))
-
 	if err != nil {
 		panic(err)
 	}
 
-	// check the connection
+	// Check the connection
 	err = db.Ping()
-
 	if err != nil {
 		panic(err)
 	}
 
 	fmt.Println("Successfully connected!")
-	// return the connection
 	return db
 }
 
-// CreateStock create a stock in the postgres db
+// CreateStock handles the creation of a new stock in the database
 func CreateStock(w http.ResponseWriter, r *http.Request) {
-
-	// create an empty stock of type models.Stock
 	var stock models.Stock
 
-	// decode the json request to stock
+	// Decode the JSON request body into the stock struct
 	err := json.NewDecoder(r.Body).Decode(&stock)
-
 	if err != nil {
-		log.Fatalf("Unable to decode the request body.  %v", err)
+		log.Fatalf("Unable to decode the request body. %v", err)
 	}
 
-	// call insert stock function and pass the stock
+	// Call the insertStock function to insert the stock into the database
 	insertID := insertStock(stock)
 
-	// format a response object
+	// Prepare the response object
 	res := response{
 		ID:      insertID,
 		Message: "Stock created successfully",
 	}
 
-	// send the response
+	// Send the response as JSON
 	json.NewEncoder(w).Encode(res)
 }
 
-// GetStock will return a single stock by its id
+// GetStock retrieves a single stock by its ID from the database
 func GetStock(w http.ResponseWriter, r *http.Request) {
-	// get the stockid from the request params, key is "id"
 	params := mux.Vars(r)
-
-	// convert the id type from string to int
 	id, err := strconv.Atoi(params["id"])
-
 	if err != nil {
-		log.Fatalf("Unable to convert the string into int.  %v", err)
+		log.Fatalf("Unable to convert the string into int. %v", err)
 	}
 
-	// call the getStock function with stock id to retrieve a single stock
+	// Call the getStock function to retrieve a single stock from the database
 	stock, err := getStock(int64(id))
-
 	if err != nil {
 		log.Fatalf("Unable to get stock. %v", err)
 	}
 
-	// send the response
+	// Send the stock as JSON response
 	json.NewEncoder(w).Encode(stock)
 }
 
-// GetAllStock will return all the stocks
+// GetAllStock retrieves all stocks from the database
 func GetAllStock(w http.ResponseWriter, r *http.Request) {
-
-	// get all the stocks in the db
+	// Call the getAllStocks function to retrieve all stocks from the database
 	stocks, err := getAllStocks()
-
 	if err != nil {
 		log.Fatalf("Unable to get all stock. %v", err)
 	}
 
-	// send all the stocks as response
+	// Send all the stocks as a JSON response
 	json.NewEncoder(w).Encode(stocks)
 }
 
-// UpdateStock update stock's detail in the postgres db
+// UpdateStock updates the details of a stock in the database
 func UpdateStock(w http.ResponseWriter, r *http.Request) {
-
-	// get the stockid from the request params, key is "id"
 	params := mux.Vars(r)
-
-	// convert the id type from string to int
 	id, err := strconv.Atoi(params["id"])
-
 	if err != nil {
-		log.Fatalf("Unable to convert the string into int.  %v", err)
+		log.Fatalf("Unable to convert the string into int. %v", err)
 	}
 
-	// create an empty stock of type models.Stock
 	var stock models.Stock
 
-	// decode the json request to stock
+	// Decode the JSON request body into the stock struct
 	err = json.NewDecoder(r.Body).Decode(&stock)
-
 	if err != nil {
-		log.Fatalf("Unable to decode the request body.  %v", err)
+		log.Fatalf("Unable to decode the request body. %v", err)
 	}
 
-	// call update stock to update the stock
+	// Call the updateStock function to update the stock in the database
 	updatedRows := updateStock(int64(id), stock)
 
-	// format the message string
+	// Prepare the message string
 	msg := fmt.Sprintf("Stock updated successfully. Total rows/record affected %v", updatedRows)
 
-	// format the response message
+	// Prepare the response object
 	res := response{
 		ID:      int64(id),
 		Message: msg,
 	}
 
-	// send the response
+	// Send the response as JSON
 	json.NewEncoder(w).Encode(res)
 }
 
-// DeleteStock delete stock's detail in the postgres db
+// DeleteStock deletes a stock's detail from the database
 func DeleteStock(w http.ResponseWriter, r *http.Request) {
-
-	// get the stockid from the request params, key is "id"
 	params := mux.Vars(r)
-
-	// convert the id in string to int
 	id, err := strconv.Atoi(params["id"])
-
 	if err != nil {
-		log.Fatalf("Unable to convert the string into int.  %v", err)
+		log.Fatalf("Unable to convert the string into int. %v", err)
 	}
 
-	// call the deleteStock, convert the int to int64
+	// Call the deleteStock function to delete the stock from the database
 	deletedRows := deleteStock(int64(id))
 
-	// format the message string
+	// Prepare the message string
 	msg := fmt.Sprintf("Stock updated successfully. Total rows/record affected %v", deletedRows)
 
-	// format the reponse message
+	// Prepare the response object
 	res := response{
 		ID:      int64(id),
 		Message: msg,
 	}
 
-	// send the response
+	// Send the response as JSON
 	json.NewEncoder(w).Encode(res)
 }
 
-// ------------------------- handler functions ----------------
-// insert one stock in the DB
+// insertStock inserts one stock into the DB
 func insertStock(stock models.Stock) int64 {
 	db := createConnection()
 	defer db.Close()
+
+	// SQL statement for inserting a stock and returning its ID
 	sqlStatement := `INSERT INTO stocks (name, price, company) VALUES ($1, $2, $3) RETURNING stockid`
 
 	var id int64
 
+	// Execute the SQL statement and scan the inserted ID
 	err := db.QueryRow(sqlStatement, stock.Name, stock.Price, stock.Company).Scan(&id)
-
 	if err != nil {
 		log.Fatalf("Unable to execute the query. %v", err)
 	}
@@ -200,24 +174,18 @@ func insertStock(stock models.Stock) int64 {
 	return id
 }
 
-// get one stock from the DB by its stockid
+// getStock retrieves one stock from the DB by its stockid
 func getStock(id int64) (models.Stock, error) {
-	// create the postgres db connection
 	db := createConnection()
-
-	// close the db connection
 	defer db.Close()
 
-	// create a stock of models.Stock type
 	var stock models.Stock
 
-	// create the select sql query
+	// SQL statement for selecting a stock by its ID
 	sqlStatement := `SELECT * FROM stocks WHERE stockid=$1`
 
-	// execute the sql statement
+	// Execute the SQL statement and unmarshal the row into the stock struct
 	row := db.QueryRow(sqlStatement, id)
-
-	// unmarshal the row object to stock
 	err := row.Scan(&stock.StockID, &stock.Name, &stock.Price, &stock.Company)
 
 	switch err {
@@ -230,111 +198,84 @@ func getStock(id int64) (models.Stock, error) {
 		log.Fatalf("Unable to scan the row. %v", err)
 	}
 
-	// return empty stock on error
+	// Return an empty stock on error
 	return stock, err
 }
 
-// get one stock from the DB by its stockid
+// getAllStocks retrieves all stocks from the DB
 func getAllStocks() ([]models.Stock, error) {
-	// create the postgres db connection
 	db := createConnection()
-
-	// close the db connection
 	defer db.Close()
 
 	var stocks []models.Stock
 
-	// create the select sql query
+	// SQL statement for selecting all stocks
 	sqlStatement := `SELECT * FROM stocks`
 
-	// execute the sql statement
+	// Execute the SQL statement and iterate over the rows, unmarshalling each into a stock struct
 	rows, err := db.Query(sqlStatement)
-
 	if err != nil {
 		log.Fatalf("Unable to execute the query. %v", err)
 	}
-
-	// close the statement
 	defer rows.Close()
 
-	// iterate over the rows
 	for rows.Next() {
 		var stock models.Stock
-
-		// unmarshal the row object to stock
-		err = rows.Scan(&stock.StockID, &stock.Name, &stock.Price, &stock.Company)
-
+		err := rows.Scan(&stock.StockID, &stock.Name, &stock.Price, &stock.Company)
 		if err != nil {
 			log.Fatalf("Unable to scan the row. %v", err)
 		}
-
-		// append the stock in the stocks slice
 		stocks = append(stocks, stock)
-
 	}
 
-	// return empty stock on error
+	// Return empty stock on error
 	return stocks, err
 }
 
-// update stock in the DB
+// updateStock updates a stock in the DB
 func updateStock(id int64, stock models.Stock) int64 {
-
-	// create the postgres db connection
 	db := createConnection()
-
-	// close the db connection
 	defer db.Close()
 
-	// create the update sql query
+	// SQL statement for updating a stock by its ID
 	sqlStatement := `UPDATE stocks SET name=$2, price=$3, company=$4 WHERE stockid=$1`
 
-	// execute the sql statement
+	// Execute the SQL statement and get the number of affected rows
 	res, err := db.Exec(sqlStatement, id, stock.Name, stock.Price, stock.Company)
-
 	if err != nil {
 		log.Fatalf("Unable to execute the query. %v", err)
 	}
 
-	// check how many rows affected
+	// Check how many rows were affected
 	rowsAffected, err := res.RowsAffected()
-
 	if err != nil {
 		log.Fatalf("Error while checking the affected rows. %v", err)
 	}
 
 	fmt.Printf("Total rows/record affected %v", rowsAffected)
-
 	return rowsAffected
 }
 
-// delete stock in the DB
+// deleteStock deletes a stock from the DB
 func deleteStock(id int64) int64 {
-
-	// create the postgres db connection
 	db := createConnection()
-
-	// close the db connection
 	defer db.Close()
 
-	// create the delete sql query
+	// SQL statement for deleting a stock by its ID
 	sqlStatement := `DELETE FROM stocks WHERE stockid=$1`
 
-	// execute the sql statement
+	// Execute the SQL statement and get the number of affected rows
 	res, err := db.Exec(sqlStatement, id)
-
 	if err != nil {
 		log.Fatalf("Unable to execute the query. %v", err)
 	}
 
-	// check how many rows affected
+	// Check how many rows were affected
 	rowsAffected, err := res.RowsAffected()
-
 	if err != nil {
 		log.Fatalf("Error while checking the affected rows. %v", err)
 	}
 
 	fmt.Printf("Total rows/record affected %v", rowsAffected)
-
 	return rowsAffected
 }
