@@ -2,6 +2,8 @@
 
 
 This project is a simple CRUD API implementation using the Go programming language, the Gorilla Mux router, and PostgreSQL as the database. The purpose of this API is to manage and manipulate stock-related data, providing endpoints for creating, reading, updating, and deleting stock information.
+## Project Overview Through a Diagram
+![](./Diagram/CRUD.png)
 
 ## Project Structure
 
